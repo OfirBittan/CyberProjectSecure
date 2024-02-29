@@ -1,0 +1,45 @@
+{% extends "base.html" %} {% block title %} Customer search {% endblock %}
+{% block content %}
+{% autoescape false %}
+<form method="POST">
+    <br> <h3 align="center">Search Customer</h3>
+    <div class="form-group">
+        <label for="firstName">Search customer by first name</label>
+        <input
+                type="text"
+                class="form-control"
+                id="firstName"
+                name="firstName"
+                placeholder="Enter first name"
+        />
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button><br>
+        <br><div class="card">
+        <div class="card-header"><h3>Customer found</h3></div>
+            <div class="card-body">
+                {% if customer %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Customer Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cust in customer %}
+                        <tr>
+                            <td>{{ cust[0] }}</td>
+                            <td>{{ cust[2] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <h6>Cannot find customer.</h6>
+                {% endif %}
+            </div>
+</div>
+</form>
+{% endautoescape %}
+{% endblock %}
+
