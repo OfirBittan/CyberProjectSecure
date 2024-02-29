@@ -1,13 +1,13 @@
-import hashlib
-import random
-
 from flask import Blueprint, request, flash, render_template, redirect, url_for, session
+from .models import User, PasswordHistory
 from datetime import datetime, timedelta
 from passlib.hash import pbkdf2_sha256
 from flask_mail import Message, Mail
 from . import mysql, passwordCheck
-from .models import User, PasswordHistory
+from .secure import escape_string
 import MySQLdb.cursors
+import hashlib
+import random
 import os
 
 MAX_LOGIN_ATTEMPTS = 3  # Max num of login attempts before blocking user.
@@ -86,7 +86,8 @@ def verify_password(password, hashed_password):
 # Get user full detail according to it's email.
 def get_user_from_unique_key(email):
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute(f"SELECT * FROM users WHERE email = '{email}' LIMIT 1;")
+    escape_email = escape_string(email)
+    cur.execute(f"SELECT * FROM users WHERE email = '{escape_email}' LIMIT 1;")
     user = cur.fetchone()
     return user
 
@@ -212,6 +213,6 @@ def change_password(email, user, hashed_new_password):
     user['password'] = hashed_new_password
     PasswordHistory.save_password_history(get_user_from_unique_key(email)['id'], hashed_new_password)
     cur = mysql.connection.cursor()
-    cur.execute("UPDATE users SET password = %s WHERE email = %s", (user['password'], user['email']))
+    cur.execute("UPDATE users SET password = %s WHERE email = %s;", (user['password'], user['email']))
     mysql.connection.commit()
     cur.close()

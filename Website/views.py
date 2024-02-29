@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, flash
 from .models import Customers
-import MySQLdb.cursors
+from .secure import escape_string
 from . import mysql
 import datetime
 
@@ -46,8 +46,9 @@ def add_customer():
 
 # Get customer full detail according to it's email.
 def get_customer_from_unique_key(email):
-    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute(f"SELECT * FROM customers WHERE email = '{email}' LIMIT 1;")
+    cur = mysql.connection.cursor()
+    escape_email = escape_string(email)
+    cur.execute(f"SELECT * FROM customers WHERE email = '{escape_email}' LIMIT 1;")
     customer = cur.fetchone()
     return customer
 
@@ -74,18 +75,15 @@ def search_customer():
     if request.method == 'POST':
         first_name = request.form.get('firstName')
         customer = get_customer_from_name(first_name)
-        print(customer)
         return render_template('customer_search.html', logged_in=True, customer=customer)
     return render_template('customer_search.html', logged_in=True, customer=None)
 
 
 # Get customer name if exists.
 def get_customer_from_name(first_name):
-    try:
-        cur = mysql.connection.cursor()
-        cur.execute(f"SELECT * FROM Customers WHERE BINARY first_name = '{first_name}';")
-        customers = cur.fetchall()
-        cur.close()
-        return customers
-    except Exception as e:
-        flash(f"An error occurred: {e}", category='error')
+    cur = mysql.connection.cursor()
+    escape_first_name = escape_string(first_name)
+    cur.execute(f"SELECT * FROM Customers WHERE BINARY first_name = '{escape_first_name}';")
+    customers = cur.fetchall()
+    cur.close()
+    return customers
