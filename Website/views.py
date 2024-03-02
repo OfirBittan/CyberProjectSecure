@@ -1,10 +1,8 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, flash
 from .models import Customers
-from .secure import escape_string, sanitize_and_escape
+from .secure import secure_str, escape_string
 from . import mysql
 import datetime
-import html
-
 
 views = Blueprint('views', __name__)
 
@@ -33,15 +31,13 @@ def home():
 @views.route('/customer_add', methods=['GET', 'POST'])
 def add_customer():
     if request.method == 'POST':
-        email = request.form.get('email')
-        first_name = request.form.get('firstName')
-        escaped_first_name = sanitize_and_escape(html.escape(first_name))
-        escaped_email = sanitize_and_escape(html.escape(email))
-        customer = get_customer_from_unique_key(escaped_email)
+        email = secure_str(request.form.get('email'))
+        first_name = secure_str(request.form.get('firstName'))
+        customer = get_customer_from_unique_key(email)
         if customer:
             flash('Email already exists.', category='error')
         else:
-            new_customer = Customers(email=escaped_email, first_name=escaped_first_name, date=datetime.datetime.now())
+            new_customer = Customers(email=email, first_name=first_name, date=datetime.datetime.now())
             new_customer.add_new_customer()
             flash(f'Added customer {new_customer.first_name}', category='success')
             return redirect(url_for('views.home'))
@@ -51,8 +47,7 @@ def add_customer():
 # Get customer full detail according to it's email.
 def get_customer_from_unique_key(email):
     cur = mysql.connection.cursor()
-    escape_email = escape_string(email)
-    cur.execute(f"SELECT * FROM customers WHERE email = '{escape_email}' LIMIT 1;")
+    cur.execute(f"SELECT * FROM customers WHERE email = '{email}' LIMIT 1;")
     customer = cur.fetchone()
     return customer
 
@@ -77,7 +72,7 @@ def get_all_customers():
 @views.route('/customer_search', methods=['GET', 'POST'])
 def search_customer():
     if request.method == 'POST':
-        first_name = request.form.get('firstName')
+        first_name = secure_str(request.form.get('firstName'))
         customer = get_customer_from_name(first_name)
         return render_template('customer_search.html', logged_in=True, customer=customer)
     return render_template('customer_search.html', logged_in=True, customer=None)
@@ -86,8 +81,7 @@ def search_customer():
 # Get customer name if exists.
 def get_customer_from_name(first_name):
     cur = mysql.connection.cursor()
-    escape_first_name = escape_string(first_name)
-    cur.execute(f"SELECT * FROM Customers WHERE BINARY first_name = '{escape_first_name}';")
+    cur.execute(f"SELECT * FROM Customers WHERE BINARY first_name = '{first_name}';")
     customers = cur.fetchall()
     cur.close()
     return customers

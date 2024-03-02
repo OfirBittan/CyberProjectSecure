@@ -1,6 +1,7 @@
 import psycopg2
 import psycopg2.extensions
 import re
+import html
 
 
 # Escape a string, making it safe to use in a SQL query.
@@ -18,3 +19,12 @@ def sanitize_and_escape(input_string):
     sanitized_string = re.sub(r'[^a-zA-Z0-9\s]', '', sanitized_string)
     sanitized_string = ' '.join(sanitized_string.split())
     return sanitized_string
+
+
+# Making sure that the input the user enters is secured against Sqli.
+# Making sure that the input the user enters is secured against Stored XSS.
+def secure_str(origin_value):
+    sql_secured = escape_string(origin_value)
+    html_secured = sanitize_and_escape(html.escape(sql_secured))
+    secure_value = html_secured
+    return secure_value

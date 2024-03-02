@@ -4,10 +4,9 @@ from datetime import datetime, timedelta
 from passlib.hash import pbkdf2_sha256
 from flask_mail import Message, Mail
 from . import mysql, passwordCheck
-from .secure import escape_string, sanitize_and_escape
+from .secure import secure_str, escape_string
 import MySQLdb.cursors
 import hashlib
-import html
 import random
 import os
 
@@ -23,8 +22,8 @@ auth = Blueprint('auth', __name__)
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = escape_string(request.form.get('email'))
+        password = secure_str(request.form.get('password'))
         user = get_user_from_unique_key(email)
         if user:  # Checks if the user exists according to email.
             # Checks if the user blocked after 3 attempts and still on 1 ,minute block.
@@ -52,11 +51,10 @@ def login():
 @auth.route('/sign_up', methods=['GET', 'POST'])
 def sign_up():
     if request.method == 'POST':
-        email = request.form.get('email')
-        first_name = request.form.get('firstName')
-        escaped_first_name = sanitize_and_escape(html.escape(first_name))
-        password1 = request.form.get('password1')
-        password2 = request.form.get('password2')
+        email = escape_string(request.form.get('email'))
+        first_name = secure_str(request.form.get('firstName'))
+        password1 = secure_str(request.form.get('password1'))
+        password2 = secure_str(request.form.get('password2'))
         user = get_user_from_unique_key(email)
         if user:
             flash('Email already exists.', category='error')
@@ -65,12 +63,12 @@ def sign_up():
         else:
             if passwordCheck.main_check(None, password1):
                 hashed_password = generate_password_hash(password1)
-                new_user = User(email=email, password=hashed_password, first_name=escaped_first_name)
+                new_user = User(email=email, password=hashed_password, first_name=first_name)
                 new_user.add_new_user()
                 PasswordHistory.save_password_history(get_user_from_unique_key(email)['id'], hashed_password)
                 session['email'] = email
                 flash('Account created!', category='success')
-                return redirect(url_for('views.home'))
+                return redirect(url_for('auth.login'))
     return render_template("sign_up.html", logged_in=False)
 
 
@@ -88,8 +86,7 @@ def verify_password(password, hashed_password):
 # Get user full detail according to it's email.
 def get_user_from_unique_key(email):
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    escape_email = escape_string(email)
-    cur.execute(f"SELECT * FROM users WHERE email = '{escape_email}' LIMIT 1;")
+    cur.execute(f"SELECT * FROM users WHERE email = '{email}' LIMIT 1;")
     user = cur.fetchone()
     return user
 
@@ -135,7 +132,7 @@ def handle_failed_login_over(user):
 def forgot_password():
     if request.method == 'POST':
         session['email'] = None
-        email = request.form.get('email')
+        email = escape_string(request.form.get('email'))
         user = get_user_from_unique_key(email)
         if user:
             code = generate_random_code()
@@ -168,8 +165,8 @@ def verify_code_from_mail():
 def reset_password():
     if request.method == 'POST':
         email = session['email']
-        new_password = request.form.get('newPassword')
-        confirm_password = request.form.get('confirmPassword')
+        new_password = secure_str(request.form.get('newPassword'))
+        confirm_password = secure_str(request.form.get('confirmPassword'))
         user = get_user_from_unique_key(email)
         if user:
             if new_password != confirm_password:
