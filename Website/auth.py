@@ -4,9 +4,10 @@ from datetime import datetime, timedelta
 from passlib.hash import pbkdf2_sha256
 from flask_mail import Message, Mail
 from . import mysql, passwordCheck
-from .secure import escape_string
+from .secure import escape_string, sanitize_and_escape
 import MySQLdb.cursors
 import hashlib
+import html
 import random
 import os
 
@@ -53,6 +54,7 @@ def sign_up():
     if request.method == 'POST':
         email = request.form.get('email')
         first_name = request.form.get('firstName')
+        escaped_first_name = sanitize_and_escape(html.escape(first_name))
         password1 = request.form.get('password1')
         password2 = request.form.get('password2')
         user = get_user_from_unique_key(email)
@@ -63,7 +65,7 @@ def sign_up():
         else:
             if passwordCheck.main_check(None, password1):
                 hashed_password = generate_password_hash(password1)
-                new_user = User(email=email, password=hashed_password, first_name=first_name)
+                new_user = User(email=email, password=hashed_password, first_name=escaped_first_name)
                 new_user.add_new_user()
                 PasswordHistory.save_password_history(get_user_from_unique_key(email)['id'], hashed_password)
                 session['email'] = email
@@ -139,8 +141,9 @@ def forgot_password():
             code = generate_random_code()
             send_reset_code_email(email, code)
             session['reset_code_hash'] = hashlib.sha1(code.encode()).hexdigest()
+            session['email'] = email
             flash('A code has been sent to your email. Please check your inbox.', category='success')
-            return redirect(url_for('auth.verify_code_from_mail', email=email))
+            return redirect(url_for('auth.verify_code_from_mail'))
         else:
             flash('Email does not exist.', category='error')
     return render_template("forgot_password.html", logged_in=False)
@@ -149,11 +152,10 @@ def forgot_password():
 # Verify code from mail function.
 @auth.route('/verify_code_from_mail', methods=['GET', 'POST'])
 def verify_code_from_mail():
-    email = request.args.get('email')
     if request.method == 'POST':
         code = request.form.get('code')
         if verify_code(code):
-            return redirect(url_for('auth.reset_password', email=email))
+            return redirect(url_for('auth.reset_password'))
         else:
             flash('Invalid code. Please try again.', category='error')
     return render_template("code_input.html", logged_in=False)
@@ -165,7 +167,7 @@ def verify_code_from_mail():
 @auth.route('/reset_password', methods=['GET', 'POST'])
 def reset_password():
     if request.method == 'POST':
-        email = request.args.get('email')
+        email = session['email']
         new_password = request.form.get('newPassword')
         confirm_password = request.form.get('confirmPassword')
         user = get_user_from_unique_key(email)

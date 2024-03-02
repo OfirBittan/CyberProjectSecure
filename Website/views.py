@@ -1,8 +1,10 @@
 from flask import Blueprint, render_template, session, redirect, url_for, request, flash
 from .models import Customers
-from .secure import escape_string
+from .secure import escape_string, sanitize_and_escape
 from . import mysql
 import datetime
+import html
+
 
 views = Blueprint('views', __name__)
 
@@ -33,11 +35,13 @@ def add_customer():
     if request.method == 'POST':
         email = request.form.get('email')
         first_name = request.form.get('firstName')
-        customer = get_customer_from_unique_key(email)
+        escaped_first_name = sanitize_and_escape(html.escape(first_name))
+        escaped_email = sanitize_and_escape(html.escape(email))
+        customer = get_customer_from_unique_key(escaped_email)
         if customer:
             flash('Email already exists.', category='error')
         else:
-            new_customer = Customers(email=email, first_name=first_name, date=datetime.datetime.now())
+            new_customer = Customers(email=escaped_email, first_name=escaped_first_name, date=datetime.datetime.now())
             new_customer.add_new_customer()
             flash(f'Added customer {new_customer.first_name}', category='success')
             return redirect(url_for('views.home'))
